@@ -1,101 +1,135 @@
-import Image from "next/image";
+'use client'
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+const base = "http://24.199.65.32:8000"
+const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+type TMeal = {
+  id: number,
+  title: string,
+  image: string,
+  cost: number,
+  meal_type: string,
 }
+
+type TMealPlan = {
+  weekly_plan: TMeal[],
+  total_cost: number
+}
+
+export default function WeeklyBudgetPlanner() {
+  const [budget, setBudget] = useState("40")
+  const [timeoutId, setTimeoutId] = useState<string | NodeJS.Timeout>()
+  const [mealPlan, setMealPlan] = useState<TMealPlan>()
+  const [error, setError] = useState<string | null>()
+
+  useEffect(() => {
+    handlePriceChange("40")
+  }, [])
+
+  const handlePriceChange = (budget: string) => {
+    clearTimeout(timeoutId)
+    setBudget(budget)
+    setTimeoutId(
+      setTimeout(async () => {
+        const b = parseInt(budget)
+        if (!b) return
+
+        try {
+          const url = base + `/weekly_plan?budget=${budget}`
+          const resp = await fetch(url)
+          // handle error
+          if (!resp.ok) {
+            setError("Couldn't create a meal plan for the given budget. Try a different budget.")
+            return
+          }
+          setError(null)
+
+          const meals = await resp.json()
+          console.log(meals)
+          setMealPlan(meals)
+        } catch {
+          setError("Couldn't create a meal plan for the given budget. Try a different budget.")
+        }
+      }, 250)
+    )
+  }
+
+  const handleReplaceItem = async (idx: number) => {
+    if (!mealPlan) return
+    const idToReplace = mealPlan.weekly_plan[idx].id
+
+    const url = base + `/replace_meal?meal_id=${idToReplace}&curr_price=${parseInt(String(mealPlan.total_cost / 100))}&budget=${budget}`
+
+    try {
+      const resp = await fetch(url)
+      const data = await resp.json()
+      console.log(data)
+      const newPlan: TMeal[] = mealPlan.weekly_plan.map((meal, index) => {
+        if (idx === index) {
+          return data.replacement_meal
+        }
+        return meal
+      })
+
+      const costs = newPlan.map(meal => meal.cost)
+      const newTotalPrice = costs.reduce((partialSum, a) => partialSum + a, 0);
+
+      setMealPlan({
+        total_cost: newTotalPrice,
+        weekly_plan: [...newPlan]
+      })
+    } catch {
+      alert("Couldn't replace item, substitute not found.")
+    }
+  }
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="flex justify-center">
+        <Input type="number" value={budget} placeholder="Enter dollar amount" className="max-w-xs" onChange={(e) => handlePriceChange(e.target.value)} />
+      </div>
+
+      <div className="grid gap-6">
+        {error
+          ?
+          <p>{error}</p>
+          :
+          mealPlan
+            ?
+            <>
+              <h2 className="text-xl font-semibold">Total cost: {(mealPlan?.total_cost / 100).toFixed(2)}$</h2>
+              {daysOfWeek.map((day, dayIdx) => (
+                <div key={day} className="space-y-2">
+                  <h2 className="text-xl font-semibold">{day}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {
+                      mealPlan?.weekly_plan.slice(dayIdx * 3, (dayIdx + 1) * 3).map((data, idx) => (
+                        <Card key={idx}>
+                          <CardHeader>
+                            <div className="bg-red-500 w-5 h-5 top-0 right-0 text-center align-middle" onClick={() => handleReplaceItem(dayIdx * 3 + idx)}>X</div>
+                            <CardTitle>{data.title}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <img src={data.image} alt="meal image" />
+                            <p>
+                              {(data.cost / 100).toFixed(2)}$
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))
+                    }
+                  </div>
+                </div>
+              ))}
+            </>
+            :
+            <></>
+        }
+      </div>
+    </div>
+  )
+}
+
