@@ -2,8 +2,9 @@
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 
-const base = "http://24.199.65.32:8000"
+const base = "http://localhost:8000"
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 type TMeal = {
@@ -28,6 +29,18 @@ export default function WeeklyBudgetPlanner() {
   useEffect(() => {
     handlePriceChange("40")
   }, [])
+
+  const setCurrMealFavorite = () => {
+    if (mealPlan) localStorage.setItem("favoriteMeal", JSON.stringify(mealPlan))
+  }
+
+  const getFavoriteMeal = () => {
+    const favMeal = localStorage.getItem("favoriteMeal")
+    if (favMeal) {
+      return JSON.parse(favMeal)
+    }
+    return null
+  }
 
   const handlePriceChange = (budget: string) => {
     clearTimeout(timeoutId)
@@ -61,7 +74,7 @@ export default function WeeklyBudgetPlanner() {
     if (!mealPlan) return
     const idToReplace = mealPlan.weekly_plan[idx].id
 
-    const url = base + `/replace_meal?meal_id=${idToReplace}&curr_price=${parseInt(String(mealPlan.total_cost / 100))}&budget=${budget}`
+    const url = base + `/replace_meal?meal_id=${idToReplace}`
 
     try {
       const resp = await fetch(url)
@@ -88,8 +101,16 @@ export default function WeeklyBudgetPlanner() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex justify-center">
+      <div className="flex justify-center space-x-3">
         <Input type="number" value={budget} placeholder="Enter dollar amount" className="max-w-xs" onChange={(e) => handlePriceChange(e.target.value)} />
+        <Button onClick={() => setCurrMealFavorite()}>Save Meal</Button>
+        {
+          getFavoriteMeal() !== null
+            ?
+            <Button onClick={() => setMealPlan(getFavoriteMeal())}>Load Favorite</Button>
+            :
+            <></>
+        }
       </div>
 
       <div className="grid gap-6">
